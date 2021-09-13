@@ -16,7 +16,10 @@ public class ChessPiece {
 	}
 	
 	public enum ChessSide {
-		WHITE, BLACK
+		WHITE, BLACK;
+		public static ChessSide getOpposite(ChessSide side) {
+			return side == WHITE ? BLACK : WHITE;
+		}
 	}
 	
 	public enum ChessPieceType {

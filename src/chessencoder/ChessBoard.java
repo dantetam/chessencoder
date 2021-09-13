@@ -3,6 +3,7 @@ package chessencoder;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +32,7 @@ public class ChessBoard {
 	}
 
 	public Map<String, Integer> fileToNumberMap;
-	public String[] fileLetterNames;
+	public static String[] fileLetterNames;
 	
 	public ChessSide currentSideToMove = ChessSide.WHITE;
 
@@ -94,7 +95,7 @@ public class ChessBoard {
 			for (int c = 0; c < numFiles; c++) {
 				ChessPiece piece = board[r][c];
 				if (piece != null && piece.side == side) {
-					Map<String, Move> moves = possibleMoves(new Pair(r, c));
+					Map<String, Move> moves = possibleLegalMoves(new Pair(r, c));
 					for (Entry<String, Move> entry: moves.entrySet()) {
 						totalMoves.put(entry.getKey(), entry.getValue());
 					}
@@ -133,7 +134,7 @@ public class ChessBoard {
 		int indexToExpand = 0;
 		while (true) {
 			System.err.println(orderedMovesListTree.size() + " " + indexToExpand + " " + nextInput);
-			if (nextInput <= orderedMovesListTree.size()) {
+			if (nextInput < orderedMovesListTree.size()) {
 				chosenMoveAlgebraicStr = orderedMovesListTree.get(nextInput).getKey();
 				chosenMoves = orderedMovesListTree.get(nextInput).getValue();
 				break;
@@ -165,8 +166,11 @@ public class ChessBoard {
 		}
 		
 		System.err.println("For input " + nextInput + ", the chosen moves: " + chosenMoveAlgebraicStr);
-		for (Move move: chosenMoves) {
-			this.advanceGameHistory(chosenMoveAlgebraicStr);
+		System.err.println(chosenMoves);
+		String[] splitMoves = chosenMoveAlgebraicStr.split(" ");
+		for (int i = 0; i < chosenMoves.size(); i++) {
+			Move move = chosenMoves.get(i);
+			this.advanceGameHistory(splitMoves[i]);
 			this.applyMoveToBoard(move);
 		}
 	}
@@ -185,24 +189,56 @@ public class ChessBoard {
 		return new Pair(rank - 1, fileToNumberMap.get(file));
 	}
 
-	private String convertPairToAlgebraic(Pair location) {
+	private static String convertPairToAlgebraic(Pair location) {
 		return new String(fileLetterNames[location.y] + "" + (location.x + 1));
 	}
 
-
+	public boolean kingIsInCheck(ChessSide side) {
+		ChessSide opposite = ChessSide.getOpposite(side);
+		
+		Pair kingLocation = null;
+		for (int i = 7; i >= 0; i--) {
+			for (int j = 0; j < board[0].length; j++) {
+				ChessPiece piece = board[i][j];
+				if (piece != null && piece.side == side) {
+					if (piece.type == ChessPieceType.KING) {
+						kingLocation = new Pair(i,j);
+					}
+				}
+			}
+		}
+		
+		for (int i = 7; i >= 0; i--) {
+			for (int j = 0; j < board[0].length; j++) {
+				ChessPiece piece = board[i][j];
+				if (piece != null && piece.side == opposite) {
+					Collection<Move> moves = possibleMoves(new Pair(i,j)).values();
+					for (Move move: moves) {
+						if (move.target.equals(kingLocation) && move.capture) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
 
 	public Map<String, Move> possibleMoves(Pair location) {
 		Map<String, Move> moves = new HashMap<String, Move>();
 
-		List<Pair> potentialDirections = new ArrayList<>();
-
 		ChessPiece piece = board[location.x][location.y];
+		
+		List<Pair> potentialDirections = new ArrayList<>();
+		
 		switch (piece.type) {
-		case PAWN: case PAWN_UNMOVED:
+		case PAWN: 
 			int direction = piece.side == ChessSide.WHITE ? 1 : -1;
+			addMoveAndCanContinue(moves, piece.side, location, location.sum(direction, 0), false); 
+		case PAWN_UNMOVED:
+			direction = piece.side == ChessSide.WHITE ? 1 : -1;
 			addMoveAndCanContinue(moves, piece.side, location, location.sum(direction, -1), true); 
 			addMoveAndCanContinue(moves, piece.side, location, location.sum(direction, 1), true); 
-			addMoveAndCanContinue(moves, piece.side, location, location.sum(direction, 0), false); 
 			break;
 		case KNIGHT:
 			for (int i = 0; i < 2; i++) {
@@ -240,24 +276,26 @@ public class ChessBoard {
 			potentialDirections.add(new Pair(1, 0));
 			break;
 		case KING:
+			Set<Pair> attacked = new HashSet<>(); //this.getSquaresAttackedBy(ChessSide.getOpposite(piece.side));
 			for (int i = 0; i < 2; i++) {
 				boolean capture = i == 0;
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(0, 1), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(0, -1), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(-1, 0), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(1, 0), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(1, 1), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(1, -1), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(-1, 1), capture);
-				addMoveAndCanContinue(moves, piece.side, location, location.sum(-1, -1), capture);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(0, 1), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(0, -1), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(-1, 0), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(1, 0), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(1, 1), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(1, -1), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(-1, 1), capture, attacked);
+				kingAddMoveAndCanContinue(moves, piece.side, location, location.sum(-1, -1), capture, attacked);
 			}
 			break;
 		}
 
 		switch (piece.type) {
 		case PAWN_UNMOVED:
-			int direction = piece.side == ChessSide.WHITE ? 2 : -2;
-			addMoveAndCanContinue(moves, piece.side, location, location.sum(direction, 0), false); 
+			int direction = piece.side == ChessSide.WHITE ? 1 : -1;
+			if (addMoveAndCanContinue(moves, piece.side, location, location.sum(direction, 0), false))
+				addMoveAndCanContinue(moves, piece.side, location, location.sum(direction * 2, 0), false); 
 			break;
 		default:
 			break;
@@ -283,6 +321,31 @@ public class ChessBoard {
 		}
 
 		return moves;
+	}
+	
+	public Map<String, Move> possibleLegalMoves(Pair location) {
+		ChessPiece foundPiece = this.board[location.x][location.y];
+		Map<String, Move> candidates = this.possibleMoves(location);
+		
+		//King can't move/discover into check
+		List<String> keysToRemove = new ArrayList<>();
+		for (Entry<String, Move> entry : candidates.entrySet()) {
+			ChessBoard cloneBoard = this.clone();
+			cloneBoard.applyMoveToBoard(entry.getValue());
+			if (foundPiece != null) {
+				if (cloneBoard.kingIsInCheck(foundPiece.side)) {
+					keysToRemove.add(entry.getKey());
+				}
+				//System.err.println(cloneBoard);
+				//System.err.println("^aBove position, king is in check: " + cloneBoard.kingIsInCheck(foundPiece.side));
+			}
+		}
+		
+		for (String key: keysToRemove) {
+			candidates.remove(key);
+		}
+		
+		return candidates;
 	}
 
 	public boolean containsEnemyPiece(ChessSide side, Pair target) {
@@ -313,6 +376,11 @@ public class ChessBoard {
 			return true;
 		}
 	}
+	
+	private boolean kingAddMoveAndCanContinue(Map<String, Move> moves, ChessSide side, Pair start, Pair target, boolean capture, Set<Pair> attackedSquares) {
+		if (attackedSquares.contains(target)) return false;
+		return addMoveAndCanContinue(moves, side, start, target, capture);
+	}
 
 	//Adds a move to the list, assuming it is valid
 	private void addMoveInAlgebraicNotation(Map<String, Move> moves, Pair start, Pair target, boolean capture) {
@@ -321,7 +389,7 @@ public class ChessBoard {
 		if (piece == null) throw new IllegalArgumentException("Trying to find piece abbreviation of empty square");
 		if (piece.type == ChessPieceType.PAWN || piece.type == ChessPieceType.PAWN_UNMOVED) {
 			if (capture) {
-				String file = fileLetterNames[start.x];
+				String file = fileLetterNames[start.y];
 				move = new String(file + "x" + convertPairToAlgebraic(target));
 			} else {
 				move = convertPairToAlgebraic(target);
@@ -334,7 +402,9 @@ public class ChessBoard {
 				move = ChessPiece.CHESS_PIECE_LETTER_REPS.get(piece.type) + convertPairToAlgebraic(target);
 			}
 		}
+		
 		if (move == null) throw new IllegalArgumentException("Could not find algebraic move from input");
+		
 		moves.put(move, new Move(start, target, capture));
 	}
 	
@@ -342,8 +412,14 @@ public class ChessBoard {
 		ChessPiece mover = getPiece(move.start);
 		ChessPiece target = getPiece(move.target);
 		if (mover == null) throw new IllegalArgumentException();
+		if (mover.side != this.currentSideToMove) {
+			throw new IllegalArgumentException(mover.side + " " + this.currentSideToMove + " " + move);
+		}
 		if (move.capture) {
 			if (target == null) throw new IllegalArgumentException();
+		}
+		if (mover.type == ChessPieceType.PAWN_UNMOVED) {
+			mover.type = ChessPieceType.PAWN;
 		}
 		board[move.start.x][move.start.y] = null;
 		board[move.target.x][move.target.y] = mover;
@@ -354,10 +430,11 @@ public class ChessBoard {
 		if (this.currentSideToMove == ChessSide.WHITE) {
 			moveHistory += " " + turnNumber + ".";
 			turnNumber++;
-		} else {
-			//moveHistory += "\n";
 		}
 		moveHistory += " " + algebraicNotation;
+		if (this.currentSideToMove == ChessSide.BLACK) {
+			moveHistory += "\n";
+		}
 	}
 	
 	public ChessPiece getPiece(Pair pair) {
@@ -387,6 +464,9 @@ public class ChessBoard {
 
 	public ChessBoard clone() {
 		ChessBoard result = new ChessBoard(this.board);
+		result.currentSideToMove = this.currentSideToMove;
+		result.turnNumber = this.turnNumber;
+		result.moveHistory = this.moveHistory;
 		return result;
 	}
 	
@@ -400,6 +480,38 @@ public class ChessBoard {
 		}
 		public Pair sum(Pair other) {
 			return new Pair(x + other.x, y + other.y);
+		}
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((x == null) ? 0 : x.hashCode());
+			result = prime * result + ((y == null) ? 0 : y.hashCode());
+			return result;
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			Pair other = (Pair) obj;
+			if (x == null) {
+				if (other.x != null)
+					return false;
+			} else if (!x.equals(other.x))
+				return false;
+			if (y == null) {
+				if (other.y != null)
+					return false;
+			} else if (!y.equals(other.y))
+				return false;
+			return true;
+		}
+		public String toString() {
+			return convertPairToAlgebraic(this);
 		}
 	}
 
@@ -419,6 +531,9 @@ public class ChessBoard {
 			this.start = start;
 			this.target = target;
 			this.capture = capture;
+		}
+		public String toString() {
+			return start + " " + target + " " + capture;
 		}
 	}
 

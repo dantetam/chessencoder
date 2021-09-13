@@ -17,11 +17,16 @@ public class ChessTest {
 		
 		System.out.println(board.toString());
 		
-		for (int i = 0; i < 100; i++) {
-			int randInt = (int)(Math.random() * 30);
+		for (int i = 0; i < 80; i++) {
+			int randInt = (int)(Math.random() * 45);
 			board.applyNthMoveToBoard(randInt);
+			/*
+			System.out.println(board.toString());
+			System.out.println("     ");
+			System.out.println("     ");
+			System.out.println("     ");
+			*/
 		}
-		System.out.println(board.toString());
 		
 		System.out.println(board.moveHistory);
 	}
