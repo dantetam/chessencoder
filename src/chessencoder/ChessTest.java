@@ -17,7 +17,7 @@ public class ChessTest {
 		
 		System.out.println(board.toString());
 		
-		for (int i = 0; i < 80; i++) {
+		for (int i = 0; i < 800; i++) {
 			int randInt = (int)(Math.random() * 45);
 			board.applyNthMoveToBoard(randInt);
 			/*

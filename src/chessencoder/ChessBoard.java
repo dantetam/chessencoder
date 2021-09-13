@@ -118,6 +118,14 @@ public class ChessBoard {
 		return sortedMoves;
 	}
 	
+	public void encodeString(String input) {
+		for (int i = 0; i < input.length(); i++) {
+			char ch = input.charAt(i);
+			int nextInput = (int) ch;
+			applyNthMoveToBoard(nextInput);
+		}
+	}
+	
 	public void applyNthMoveToBoard(int nextInput) {
 		String chosenMoveAlgebraicStr = null;
 		List<Move> chosenMoves = null;
@@ -428,12 +436,15 @@ public class ChessBoard {
 	
 	public void advanceGameHistory(String algebraicNotation) {
 		if (this.currentSideToMove == ChessSide.WHITE) {
-			moveHistory += " " + turnNumber + ".";
+			moveHistory += turnNumber + ".";
 			turnNumber++;
 		}
-		moveHistory += " " + algebraicNotation;
+		moveHistory += algebraicNotation;
+		if (this.currentSideToMove == ChessSide.WHITE) {
+			moveHistory += " ";
+		}
 		if (this.currentSideToMove == ChessSide.BLACK) {
-			moveHistory += "\n";
+			moveHistory += " "; //"\n";
 		}
 	}
 	
